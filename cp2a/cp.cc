@@ -6,49 +6,60 @@ This is the function you need to implement. Quick reference:
 - correlation between rows i and row j has to be stored in result[i + j*ny]
 - only parts with 0 <= j <= i < ny need to be filled
 */
-#include <math.h>
 #include <iostream>
+#include <math.h>
 
 void correlate(int ny, int nx, const float *data, float *result) {
+  // Normalized rows storage
+  double *normalized = new double[ny * nx];
   constexpr int nb = 4;
-  int na = (nx + nb - 1) / nb;
-  int nab = na*nb;
-  double *means = new double[ny];
-  for (int row = 0; row < ny; row++) {
-    double rowmean = 0;
-    for (int x = 0; x < nx; x++) {
-      rowmean += data[x + row * nx];
+  int na = nx / nb;
+
+  // Normalize rows to have mean 0
+  for (int i = 0; i < ny; ++i) {
+    double mean = 0;
+    for (int j = 0; j < nx; ++j) {
+      mean += data[j + i * nx];
     }
-    rowmean /= nx;
-    means[row] = rowmean;
+    mean /= nx;
+    for (int j = 0; j < nx; ++j) {
+      normalized[j + i * nx] = data[j + i * nx] - mean;
+    }
   }
 
-  for (int j = 0; j < ny; j++) {
-    double meanJ = means[j];
+  // Normalize rows to have norm of 0
+  for (int i = 0; i < ny; ++i) {
+    double norm = 0;
+    for (int j = 0; j < nx; ++j) {
+      double value = normalized[j + i * nx];
+      norm += value * value;
+    }
+    norm = sqrt(norm);
+    for (int j = 0; j < nx; ++j) {
+      normalized[j + i * nx] /= norm;
+    }
+  }
 
-    for (int i = j; i < ny; i++) {
-      double meanI = means[i];
-
-      double sumSquaredDiffI = 0;
-      double sumSquaredDiffJ = 0;
-      double sumProductDiffIJ = 0;
-      double diffI[nb];
-      double diffJ[nb];
+  // Compute upper triangle of correlation matrix
+  for (int i = 0; i < ny; ++i) {
+    for (int j = 0; j <= i; ++j) {
+      double dot_product[nb] = {0};
       for (int ka = 0; ka < na; ka++) {
-        // double diffIJ[nb];
         for (int kb = 0; kb < nb; kb++) {
-          diffI[kb] = data[kb + ka * nb + i * nx] - meanI;
-          diffJ[kb] = data[kb + ka * nb + i * nx] - meanJ;
-          // diffIJ[kb] = diffI[kb] * diffJ[kb];
-          sumSquaredDiffI += diffI[kb] * diffI[kb];
-          sumSquaredDiffJ += diffJ[kb] * diffJ[kb];
-          sumProductDiffIJ += diffI[kb] * diffJ[kb];
+          dot_product[kb] += normalized[kb + ka * nb + i * nx] * normalized[kb + ka * nb + j * nx];
         }
       }
-      double corr = sumProductDiffIJ / sqrt(sumSquaredDiffI) / sqrt(sumSquaredDiffJ);
-      result[i + j * ny] = corr;
+      double dot_product_sum = 0;
+      for (int kb = 0; kb < nb; kb++) {
+        dot_product_sum += dot_product[kb];
+      }
+      for (int k = na*nb; k < nx; k++) { // Account for the rest of the elements that didnt fit into a nb-block
+        dot_product_sum += normalized[k + i * nx] * normalized[k + j * nx];
+      }
+      result[i + j * ny] = dot_product_sum;
     }
   }
-  delete[] means;
-  means = nullptr;
+
+  delete[] normalized;
 }
+

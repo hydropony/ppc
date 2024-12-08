@@ -6,41 +6,48 @@ This is the function you need to implement. Quick reference:
 - correlation between rows i and row j has to be stored in result[i + j*ny]
 - only parts with 0 <= j <= i < ny need to be filled
 */
-
-#include <math.h>
 #include <iostream>
+#include <math.h>
 
 void correlate(int ny, int nx, const float *data, float *result) {
-  double *means = new double[ny];
-  for (int row = 0; row < ny; row++) {
-    double rowmean = 0;
-    for (int x = 0; x < nx; x++) {
-      rowmean += data[x + row * nx];
+  // Normalized rows storage
+  double *normalized = new double[ny * nx];
+
+  // Normalize rows to have mean 0
+  for (int i = 0; i < ny; ++i) {
+    double mean = 0;
+    for (int j = 0; j < nx; ++j) {
+      mean += data[j + i * nx];
     }
-    rowmean /= nx;
-    means[row] = rowmean;
+    mean /= nx;
+    for (int j = 0; j < nx; ++j) {
+      normalized[j + i * nx] = data[j + i * nx] - mean;
+    }
   }
 
-  for (int j = 0; j < ny; j++) {
-    double meanJ = means[j];
+  // Normalize rows to have norm of 0
+  for (int i = 0; i < ny; ++i) {
+    double norm = 0;
+    for (int j = 0; j < nx; ++j) {
+      double value = normalized[j + i * nx];
+      norm += value * value;
+    }
+    norm = sqrt(norm);
+    for (int j = 0; j < nx; ++j) {
+      normalized[j + i * nx] /= norm;
+    }
+  }
 
-    for (int i = j; i < ny; i++) {
-      double meanI = means[i];
-
-      double sumSquaredDiffI = 0;
-      double sumSquaredDiffJ = 0;
-      double sumProductDiffIJ = 0;
-      for (int index = 0; index < nx; index++) {
-        double diffI = data[index + i * nx] - meanI;
-        double diffJ = data[index + j * nx] - meanJ;
-        sumSquaredDiffI += diffI * diffI;
-        sumSquaredDiffJ += diffJ * diffJ;
-        sumProductDiffIJ += diffI * diffJ;
+  // Compute upper triangle of correlation matrix
+  for (int i = 0; i < ny; ++i) {
+    for (int j = 0; j <= i; ++j) {
+      double dot_product = 0;
+      for (int k = 0; k < nx; ++k) {
+        dot_product += normalized[k + i * nx] * normalized[k + j * nx];
       }
-      double corr = sumProductDiffIJ / sqrt(sumSquaredDiffI) / sqrt(sumSquaredDiffJ);
-      result[i + j * ny] = corr;
+      result[i + j * ny] = dot_product;
     }
   }
-  delete[] means;
-  means = nullptr;
+
+  delete[] normalized;
 }
